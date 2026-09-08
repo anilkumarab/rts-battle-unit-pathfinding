@@ -1,91 +1,68 @@
 # Globus Medical — Software Candidate Assessment
 ### RTS Battle-Unit Pathfinding
 
-A path-finding solution for a Real-Time Strategy battlefield: given a grid map with
-walkable ("ground") and blocked ("elevated") terrain, a unit's starting position, and a
-target position, the program computes a valid step-by-step path between them. It also
-implements the optional extra task: routing multiple units simultaneously without
-collisions.
+This is my solution to the RTS battle-unit pathfinding assessment: given a grid map of
+walkable ("ground") and blocked ("elevated") terrain, plus a unit's start and target
+position, the program finds a step-by-step path between them. It also covers the
+optional bonus task — routing multiple units at once without any of them colliding.
 
-Implemented in **C++20** (per the language explicitly requested in the assessment's
-follow-up email — the job description itself specifies "C++17 and later," and C++20
-satisfies that) with a minimal text-based CLI, matching the assessment's guidance for a
-backend-track candidate ("the UI may be minimal, e.g. a simple text-based terminal")
-and the Senior Software Engineer (Robotics) job description this assessment was given
-for, which calls out object-oriented C++, test-driven development, and clean,
-maintainable, well-documented software.
+I wrote it in C++20 (the assessment's follow-up email asked for C++20 specifically,
+even though the job description just says "C++17 and later") with a plain text-based
+CLI, since the brief says the UI can be minimal for a backend-track candidate.
 
 ---
 
 ## 1. Design Decisions
 
-### Algorithm choice: A* over plain BFS/DFS
-Both BFS and A* are guaranteed to find a *shortest* path on this kind of unweighted
-grid. A* was chosen because it uses a Manhattan-distance heuristic (valid here since
-movement is strictly 4-directional) to explore far fewer cells than BFS on large or
-maze-like maps, while remaining complete and optimal. Its open/closed-set structure
-also naturally satisfies the assessment's requirement that the algorithm "must be
-capable of backtracking and finding a valid path, even in complex scenarios": A*
-re-expands any cell it finds a cheaper route to, so it cannot get permanently stuck the
-way a naive "always step toward the target" greedy walker would in a maze (this exact
-scenario — a U-shaped wall that traps a greedy walker — is one of the automated tests,
-`AStar_RequiresBacktrackingThroughUShapedWall`).
+### Algorithm choice: A* over BFS/DFS
+BFS and A* both guarantee a shortest path on this kind of unweighted grid, but A* uses
+a Manhattan-distance heuristic (valid since movement is strictly 4-directional) to
+explore far fewer cells, especially on larger or maze-like maps. It also backtracks
+naturally — it re-expands a cell whenever it finds a cheaper route to it, so it can't
+get permanently stuck the way a naive "always step toward the target" walker would in a
+maze. That's exercised directly by `AStar_RequiresBacktrackingThroughUShapedWall`.
 
-### Multi-unit extension: prioritized planning with space-time A*
-For the optional bonus, each unit is planned **one at a time**, in the order given.
-Each unit's search runs in **space-time** — its search state is `(position, time)`
-rather than just `position` — against a shared reservation table of cells already
-claimed by earlier units at each time step. A unit may also **wait in place** for one
-time step, which lets it yield to another unit in a narrow corridor rather than failing
-outright.
+### Multi-unit routing: prioritized planning with space-time A*
+Each unit is planned one at a time, in the order given. Every unit's search runs in
+space-time — its state is `(position, time)` rather than just `position` — against a
+shared reservation table of cells already claimed by earlier units. A unit can also
+wait in place for a step, which lets it yield to another unit in a narrow corridor
+instead of failing outright.
 
-This is a standard, well-known approach to cooperative pathfinding (often called
-*prioritized planning*). It is simple to read, verify, and test, and it's more than
-sufficient for the grid sizes this assessment targets. It is **not** guaranteed to find
-a solution in every theoretically solvable scenario (a provably optimal/complete
-solution requires substantially more expensive algorithms, e.g. Conflict-Based Search),
-which is a deliberate trade-off favoring the assessment's explicit ask for "clean,
-maintainable, and efficient code" over maximal sophistication.
+This is a standard approach (often called prioritized planning), not a fully optimal
+multi-agent solver like Conflict-Based Search. It won't always find a solution in every
+theoretically solvable case, but it's simple to read and test, and it's plenty for the
+grid sizes this assessment targets.
 
-### Documented ambiguity #1 — RiskyLab Tilemap tile IDs
-The brief states tile meanings are "depending on the icon set," without pinning down a
-single canonical mapping. This implementation documents and uses the mapping given in
-the brief's bullet list: `0` = start, `8` = target, `3` = elevated/blocked, `-1` =
-reachable ground. Any *other* tile value encountered is treated as walkable ground
-rather than as an obstacle, so that decorative/unknown tile IDs in a real exported map
-don't silently make the level unsolvable. This is called out explicitly in
-`TilemapParser.hpp`.
+### Ambiguity: tile ID meanings
+The brief says tile meanings depend on the icon set without pinning one down, so I used
+the mapping given in its bullet list: `0` = start, `8` = target, `3` = elevated/blocked,
+`-1` = ground. Any other tile value is treated as walkable ground rather than an
+obstacle, so unknown or decorative tile IDs in a real exported map don't silently make
+the level unsolvable. Documented in `TilemapParser.hpp`.
 
-### Documented ambiguity #2 — what "reaching a common target" means for multiple units
-The brief allows multiple units to move toward *a common target position*, but also
-states that "at any given moment, each ground terrain position may be occupied by at
-most one unit." Taken completely literally forever, these two statements conflict: if a
-unit that reaches the target held that cell for all time afterward, no second unit
-could ever occupy it, and "common target" would be impossible by construction.
-
-This implementation resolves the ambiguity by treating a unit as having **completed its
-mission and left the battlefield** the instant after it finishes its recorded path,
-rather than occupying its final cell forever. This keeps the "no two units share a cell
-at the same moment" constraint intact for every step a unit is actually on the board,
-while making the explicitly-supported "common target" case solvable. This is documented
-in code at `MultiAgentPathfinder.cpp` (see `positionAtTime`), and is covered by the test
-`MultiAgent_SharedTargetBothUnitsArrive`.
+### Ambiguity: shared targets vs. one unit per cell
+The brief allows multiple units to move toward a shared target, but also says at most
+one unit can occupy a ground position at any moment. Taken literally forever, those two
+rules conflict — if a unit held its final cell for all time, no second unit could ever
+reach the same target. I resolved this by having a unit "leave the battlefield" the
+instant it finishes its path, rather than occupying its last cell forever. That keeps
+the one-unit-per-cell rule intact for every step a unit is actually on the board, while
+still making shared targets work. See `positionAtTime` in `MultiAgentPathfinder.cpp` and
+the test `MultiAgent_SharedTargetBothUnitsArrive`.
 
 ### Test framework: a small self-contained one, not a fetched dependency
-Rather than pulling in GoogleTest or Catch2 (which would need to be fetched and built,
-adding a build-time dependency and a step that can fail on a reviewer's machine without
-internet access), the test suite uses a ~70-line self-contained header
-(`tests/MiniTest.hpp`) providing `TEST`, `ASSERT_TRUE/FALSE/EQ`. It's not meant to
-compete feature-for-feature with a real framework — just to keep the build trivially
-reproducible while still supporting genuine TDD-style, readable tests.
+Rather than pulling in GoogleTest or Catch2, I wrote a small self-contained header
+(`tests/MiniTest.hpp`, ~70 lines) with `TEST` and `ASSERT_TRUE/FALSE/EQ`. It's not
+trying to compete with a real framework — it just keeps the build reproducible without
+needing a fetched dependency or internet access on a reviewer's machine.
 
 ### Third-party library: nlohmann/json (header-only)
-JSON parsing/writing uses [nlohmann/json](https://github.com/nlohmann/json) v3.11.3, a
-widely-used single-header library, vendored directly in `third_party/json.hpp`. This
-was the one third-party dependency used in the whole project; everything else (the
-pathfinding, the CLI, the tests) is written from scratch. Using a battle-tested JSON
-library rather than hand-rolling a parser avoids introducing bugs in a part of the
-system that isn't what this assessment is actually testing.
+JSON parsing/writing uses [nlohmann/json](https://github.com/nlohmann/json) v3.11.3,
+vendored directly as a single header in `third_party/json.hpp`. It's the only
+third-party dependency in the whole project — everything else (pathfinding, CLI, tests)
+is written from scratch. I didn't want to hand-roll a JSON parser for a part of the
+project that isn't really what's being assessed.
 
 ---
 
@@ -115,6 +92,7 @@ globus-pathfinding/
 │   └── test_multiagent.cpp
 ├── third_party/
 │   └── json.hpp                  nlohmann/json v3.11.3 (vendored, header-only)
+├── screenshots/                  Screenshots of sample runs (see section 4)
 └── samples/
     ├── map_simple_5x5.json       Small hand-crafted map with a wall detour
     ├── map_no_path_5x5.json      Target fully walled off — exercises the "no path" case
@@ -123,8 +101,7 @@ globus-pathfinding/
     └── output/                   Captured sample run results (see section 4)
 ```
 
-**Class responsibilities**, deliberately kept single-purpose and independently
-testable:
+**Class responsibilities** — each one stays single-purpose and independently testable:
 - `Grid` knows only about terrain — no notion of units, start/target, or JSON.
 - `TilemapParser` only converts between the RiskyLab JSON format and a `Grid` (+ start/
   target positions). It doesn't know how pathfinding works.
@@ -175,20 +152,45 @@ Run the tests:
 ./pathfinder ../samples/map_simple_5x5.json --out result.json
 ```
 
+### Windows notes
+
+The machine I built and tested this on doesn't have `cmake`, `ninja`, or `make` on PATH
+by default. Here's what actually worked, in case it's useful to a reviewer on a similar
+setup:
+
+- **CMake + Ninja**: both are bundled with VS Build Tools, under
+  `...\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe` (Ninja is in a
+  sibling directory).
+- **Compiler**: MSYS2's UCRT64 g++ (`C:\msys64\ucrt64\bin\g++.exe`).
+
+```bash
+CMAKE=".../Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
+NINJA=".../Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
+"$CMAKE" -S . -B build -G Ninja -DCMAKE_MAKE_PROGRAM="$NINJA" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++
+"$CMAKE" --build build --config Release -j
+```
+
+One gotcha that cost some time: running the built `.exe` from Git Bash produces a
+spurious "segmentation fault" even when the program and inputs are completely fine —
+the exact same binary and arguments run cleanly from PowerShell or cmd. That's a
+Git-Bash/MinGW-exe interop quirk, not a real crash, so on this machine I run compiled
+binaries from PowerShell rather than Git Bash.
+
 ---
 
 ## 4. Sample Runs
 
 All files referenced below are included under `samples/` and `samples/output/`, with
-real captured output (not hand-written) from running the built binaries.
+real captured output (not hand-written) from running the built binaries. Screenshots
+are under `screenshots/`.
 
-| Scenario | Input | Captured output |
-|---|---|---|
-| Small map requiring a detour around a wall | `samples/map_simple_5x5.json` | `samples/output/run_simple_5x5.txt`, `samples/output/map_simple_5x5_result.json` |
-| 32×32 generated maze (satisfies "at least 32×32") | `samples/map_maze_32x32.json` | `samples/output/run_maze_32x32.txt`, `samples/output/map_maze_32x32_result.json` |
-| Target fully walled off — no path exists | `samples/map_no_path_5x5.json` | `samples/output/run_no_path_5x5.txt` |
-| Two units to distinct targets, collision-free (bonus) | `samples/map_multi_6x6.json` | `samples/output/run_multi_6x6.txt` |
-| Full automated test suite | — | `samples/output/test_run_output.txt` (18/18 passing) |
+| Scenario | Input | Captured output | Screenshot |
+|---|---|---|---|
+| Small map requiring a detour around a wall | `samples/map_simple_5x5.json` | `samples/output/run_simple_5x5.txt`, `samples/output/map_simple_5x5_result.json` | ![Simple 5x5 map run](screenshots/simple_map.png) |
+| 32×32 generated maze (satisfies "at least 32×32") | `samples/map_maze_32x32.json` | `samples/output/run_maze_32x32.txt`, `samples/output/map_maze_32x32_result.json` | ![32x32 maze run 1](screenshots/32x32_maze1.png) ![32x32 maze run 2](screenshots/32x32_maze2.png) |
+| Target fully walled off — no path exists | `samples/map_no_path_5x5.json` | `samples/output/run_no_path_5x5.txt` | ![No path 5x5 map run](screenshots/no_path.png) |
+| Two units to distinct targets, collision-free (bonus) | `samples/map_multi_6x6.json` | `samples/output/run_multi_6x6.txt` | ![Multi-unit 6x6 map run](screenshots/multi_unit.png) |
+| Full automated test suite | — | `samples/output/test_run_output.txt` (18/18 passing) | ![Full test suite run](screenshots/full_test.png) |
 
 Example — the small map (`map_simple_5x5.json`) is a 5×5 grid with a wall separating
 start and target except for a single-cell gap in the middle:
@@ -199,9 +201,9 @@ S # . # T
 . # # # .
 . . . . .
 ```
-The program correctly finds the 9-step detour around the top of the wall (it can't cut
-through the isolated open cell in the middle, since that cell has no connection to
-either side):
+The program finds the 9-step detour around the top of the wall (it can't cut through
+the isolated open cell in the middle, since that cell has no connection to either
+side):
 ```
 Start: (2, 0)  Target: (2, 4)
 Path found (9 steps):
@@ -221,7 +223,7 @@ Path found (9 steps):
 ## 5. Concerns / Notes on the Problem Statement
 
 As requested by the "General Requirements" section, a few points where the brief was
-ambiguous or underspecified, and how this implementation resolves them:
+ambiguous or underspecified, and how I resolved them:
 
 1. **Tile ID meaning is icon-set-dependent** — resolved by using the literal mapping
    given in the brief and treating any other value as walkable ground (see section 1).
@@ -229,18 +231,49 @@ ambiguous or underspecified, and how this implementation resolves them:
    if a unit is assumed to occupy its final cell forever — resolved by treating a unit
    as having left the battlefield once its path is complete (see section 1).
 3. **The RiskyLab Tilemap sample link in the brief** wasn't directly accessible in this
-   environment, so the JSON structure (`width`, `height`, `layers[0].data`) was inferred
+   environment, so I inferred the JSON structure (`width`, `height`, `layers[0].data`)
    from the brief's own description ("The `layers[0].data` field... has *row x columns*
    entries") rather than a fetched sample file. The parser validates this shape
    explicitly and raises a clear error if a real-world file doesn't match, rather than
    failing silently.
 4. **Diagonal movement** is explicitly disallowed by the brief ("travel horizontally...
-   or vertically") — the `Grid::walkableNeighbors` implementation only considers the 4
-   orthogonal directions, and this is covered by a unit test.
+   or vertically") — `Grid::walkableNeighbors` only considers the 4 orthogonal
+   directions, and that's covered by a unit test.
 
 ---
 
-## 6. Feedback on the Assessment
+## 6. On Using Claude
+
+I used Claude Code throughout this project, and I want to be upfront about what it did
+versus what I did.
+
+**What Claude helped with:**
+- Scaffolding the project — CMake setup, directory layout, initial class skeletons
+- Writing the first pass of the A* and multi-agent pathfinding implementations
+- Generating the test suite
+- Debugging the Windows build: this machine doesn't have `cmake`, `ninja`, or `make` on
+  PATH, so tracking down that VS Build Tools bundles its own CMake + Ninja, wiring that
+  up with MSYS2's g++, chasing down the spurious Git-Bash segfault when running the
+  built `.exe` (see the "Windows notes" above), and sorting out a PATH issue with `gh`
+  all took a fair amount of back-and-forth
+- Drafting documentation, including an earlier pass of this README
+
+**What I did myself:**
+- Made the actual design calls — choosing A* over BFS/DFS, picking prioritized planning
+  with space-time A* for the multi-unit case, and resolving both ambiguities (tile IDs,
+  shared targets vs. one-unit-per-cell)
+- Verified every build and test result myself, on my own machine, rather than trusting
+  reported output
+- Reviewed and rewrote the generated comments and docs in my own words
+- Made the scope and time-budget calls on what to build and how deep to go
+
+I don't think there's anything wrong with using an AI assistant for this kind of work —
+it's a normal part of how I write software now — but I'd rather the write-up reflect
+that honestly than read like I typed every line myself.
+
+---
+
+## 7. Feedback on the Assessment
 
 1. **Most helpful:** the explicit constraints section (discrete movement, 4-directional
    only, must handle backtracking) made the algorithm choice and test design

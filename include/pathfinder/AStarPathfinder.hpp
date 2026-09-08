@@ -8,19 +8,14 @@
 
 namespace pathfinder {
 
-/// Finds a shortest path for a single battle unit across a Grid using the
-/// A* search algorithm.
+/// Finds a shortest path for a single battle unit across a Grid using A*.
 ///
-/// Why A* rather than plain BFS: both are guaranteed to find a shortest
-/// path on an unweighted grid like this one, but A* uses a heuristic
-/// (Manhattan distance, since movement is 4-directional) to explore far
-/// fewer cells on large or maze-like maps, while still being complete and
-/// optimal. That satisfies the assessment's requirement that the algorithm
-/// "must be capable of backtracking and finding a valid path, even in
-/// complex scenarios": A* naturally backtracks by re-expanding any cell it
-/// discovers a cheaper route to, and its open/closed sets guarantee every
-/// reachable cell is eventually considered, so it can't get stuck the way
-/// a naive greedy "always step toward the target" approach would in a maze.
+/// Using A* over plain BFS since the Manhattan-distance heuristic (movement
+/// is 4-directional) lets it explore far fewer cells on large/maze-like
+/// maps while still guaranteeing a shortest path. It also backtracks for
+/// free: re-expanding a cell when a cheaper route to it turns up, so it
+/// can't get stuck the way a greedy "always step toward the target" walker
+/// would in a maze.
 class AStarPathfinder {
 public:
     explicit AStarPathfinder(const Grid& grid) : grid_(grid) {}

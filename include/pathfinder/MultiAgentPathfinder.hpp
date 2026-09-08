@@ -9,28 +9,23 @@
 namespace pathfinder {
 
 /// A path for one unit, indexed by time step (path[0] is where the unit is
-/// at t=0, path[1] at t=1, etc). Units that reach their target simply wait
-/// there for the remaining steps, which is what makes collision-checking
-/// against them well-defined at every time step.
+/// at t=0, path[1] at t=1, etc). Once a unit reaches its target it's done —
+/// it has no entry for later time steps, i.e. it's off the board — which is
+/// what lets multiple units share a target position.
 using TimedPath = std::vector<Position>;
 
-/// Solves the assessment's optional extra task: routing multiple units at
-/// once, each with its own start and (possibly shared) target, such that no
-/// two units ever occupy the same ground cell at the same time.
+/// Routes multiple units at once, each with its own start and (possibly
+/// shared) target, so that no two units ever occupy the same cell at the
+/// same time.
 ///
-/// APPROACH: prioritized planning with a space-time reservation table.
-/// Units are planned one at a time, in the order given. Each unit runs a
-/// space-time A* search (a normal A* search where every node is (position,
-/// time) instead of just position) against a shared table of cells already
-/// reserved by earlier units at each time step. This is a well-known,
-/// simple, and effective heuristic for cooperative pathfinding; it is not
-/// guaranteed optimal or even always complete for pathological cases (a
-/// true optimal solution requires far more expensive algorithms like
-/// Conflict-Based Search), but for the grid sizes and unit counts this
-/// assessment targets, it reliably finds valid collision-free paths and is
-/// far simpler to read and verify than a full multi-agent solver — which
-/// matches the assessment's ask for clean, maintainable code over maximal
-/// sophistication.
+/// Approach: prioritized planning with a space-time reservation table.
+/// Units are planned one at a time, in the order given. Each one runs a
+/// space-time A* search (nodes are (position, time) instead of just
+/// position) against a table of cells already reserved by earlier units.
+/// It's a well-known, simple approach to cooperative pathfinding — not
+/// guaranteed optimal or complete in every pathological case (a true
+/// optimal solver would be something like Conflict-Based Search), but
+/// reliable at the grid sizes here and much easier to read and verify.
 class MultiAgentPathfinder {
 public:
     explicit MultiAgentPathfinder(const Grid& grid) : grid_(grid) {}

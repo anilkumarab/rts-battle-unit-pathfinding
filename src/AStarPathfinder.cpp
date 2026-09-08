@@ -82,9 +82,7 @@ std::optional<std::vector<Position>> AStarPathfinder::findPath(const Position& s
             const int tentativeG = current.gCost + 1;  // uniform cost per step
             auto it = bestGCost.find(neighbor);
             if (it == bestGCost.end() || tentativeG < it->second) {
-                // Found a cheaper (or first) route to `neighbor`: this is the
-                // "backtracking" case — we override a previously assumed
-                // best route with a better one discovered later.
+                // Found a cheaper (or first) route to `neighbor` — overwrite it.
                 bestGCost[neighbor] = tentativeG;
                 cameFrom[neighbor] = current.pos;
                 const int f = tentativeG + manhattanDistance(neighbor, target);

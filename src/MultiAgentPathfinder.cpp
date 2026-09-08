@@ -43,20 +43,10 @@ int manhattanDistance(const Position& a, const Position& b) {
 /// Where the unit that already has `path` is at time `t`, if it is still
 /// "on the board" at that time.
 ///
-/// DESIGN DECISION / DOCUMENTED ASSUMPTION: a unit occupies its cell for
-/// every recorded step of its path (including sitting at the target during
-/// the final step), but is considered to have completed its mission and
-/// vacated the battlefield immediately afterward, rather than occupying
-/// its target cell forever. This is what makes the assessment's explicit
-/// "units may move towards a common target position" case solvable at
-/// all: if a completed unit held its cell indefinitely, no second unit
-/// could ever occupy that same target, since "at any given moment, each
-/// ground terrain position may be occupied by at most one unit" would be
-/// permanently violated by definition. The alternative reading (units
-/// stay forever) is also defensible, but makes shared targets impossible
-/// by construction — since the brief calls out shared targets as a
-/// supported case, this implementation resolves the ambiguity in favor of
-/// "vacate on completion."
+/// A unit vacates the battlefield the instant it finishes its path rather
+/// than occupying its target cell forever — otherwise a shared target
+/// would be impossible, since the first unit to arrive would permanently
+/// block anyone else from reaching it.
 std::optional<Position> positionAtTime(const TimedPath& path, int t) {
     if (t < static_cast<int>(path.size())) return path[static_cast<std::size_t>(t)];
     return std::nullopt;  // this unit has completed its path and left the board

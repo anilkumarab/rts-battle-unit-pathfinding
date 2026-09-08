@@ -14,8 +14,7 @@ enum class CellType {
 };
 
 /// The battlefield: a rectangular grid of cells, each Ground or Elevated.
-/// This class only knows about terrain — it has no notion of units or
-/// start/target positions, which keeps it simple and independently testable.
+/// Only knows about terrain — no notion of units or start/target positions.
 class Grid {
 public:
     Grid(int rows, int cols)
@@ -48,8 +47,7 @@ public:
     }
 
     /// The four orthogonal neighbors of a position that are actually walkable.
-    /// Units can only travel horizontally or vertically (no diagonals), per
-    /// the assessment's movement constraint.
+    /// No diagonals.
     std::vector<Position> walkableNeighbors(const Position& p) const {
         std::vector<Position> result;
         result.reserve(4);
