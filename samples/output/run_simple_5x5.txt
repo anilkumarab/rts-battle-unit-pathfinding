@@ -1,0 +1,13 @@
+Loaded map: 5 x 5 (rows x cols)
+Start: (2, 0)  Target: (2, 4)
+Path found (9 steps):
+  0: (2, 0)
+  1: (1, 0)
+  2: (0, 0)
+  3: (0, 1)
+  4: (0, 2)
+  5: (0, 3)
+  6: (0, 4)
+  7: (1, 4)
+  8: (2, 4)
+Wrote result map to samples/output/map_simple_5x5_result.json

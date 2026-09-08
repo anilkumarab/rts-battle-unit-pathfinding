@@ -1,0 +1,20 @@
+[PASS] Grid_DefaultsAllCellsToGround
+[PASS] Grid_SetElevatedBlocksCell
+[PASS] Grid_OutOfBoundsIsNotWalkable
+[PASS] Grid_WalkableNeighborsExcludesElevatedAndOutOfBounds
+[PASS] Grid_ConstructorRejectsNonPositiveDimensions
+[PASS] Parser_ParsesStartTargetAndElevatedTiles
+[PASS] Parser_ThrowsOnMismatchedDataLength
+[PASS] Parser_ThrowsWhenStartTileMissing
+[PASS] Parser_RoundTripsThroughToJsonString
+[PASS] AStar_FindsPathOnOpenGrid
+[PASS] AStar_StartEqualsTargetReturnsSingleCellPath
+[PASS] AStar_ReturnsNulloptWhenTargetIsWalledOff
+[PASS] AStar_RequiresBacktrackingThroughUShapedWall
+[PASS] AStar_ThrowsWhenStartIsOnElevatedTerrain
+[PASS] MultiAgent_TwoUnitsToDistinctTargetsOnOpenGrid
+[PASS] MultiAgent_UnitsForcedThroughNarrowCorridorDontCollide
+[PASS] MultiAgent_ReturnsNulloptWhenMismatchedInputSizes
+[PASS] MultiAgent_SharedTargetBothUnitsArrive
+
+18 passed, 0 failed, out of 18 total.

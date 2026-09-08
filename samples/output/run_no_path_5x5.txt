@@ -1,0 +1,3 @@
+Loaded map: 5 x 5 (rows x cols)
+Start: (2, 0)  Target: (2, 2)
+No path exists from (2, 0) to (2, 2).
